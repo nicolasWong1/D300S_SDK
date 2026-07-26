@@ -2081,19 +2081,19 @@ BOOL RunLiveViewLoop(LPRefObj pRefSrc)
 					printf("Unable to recover LiveView.\n");
 				}
 
-				// if (!liveViewResult)
-				// {
-				// 	printf("Unable to recover LiveView.\n");
-				// }
+				continue;
+			}
 
-				// if (captureResult)
-				// {
-				// 	SendWorkerMessage("capture-ok\n");
-				// }
-				// else
-				// {
-				// 	SendWorkerMessage("capture-failed\n");
-				// }
+			if (strstr(command, "liveview") != NULL)
+			{
+				printf("Resume LiveView command received.\n");
+
+				const BOOL result = RestartLiveView(pRefSrc);
+
+				printf(
+					"RestartLiveView result: %s\n",
+					result ? "success" : "failed"
+				);
 
 				continue;
 			}
@@ -2711,7 +2711,10 @@ BOOL GetArrayCapability(LPRefObj pRefObj, ULONG ulCapID, LPNkMAIDArray pstArray)
 	}
 
 	// show selectable items for this capability and current setting
-	printf("[%s]\n", pCapInfo->szDescription);
+	if (ulCapID != kNkMAIDCapability_GetLiveViewImage)
+	{
+		printf("[%s]\n", pCapInfo->szDescription);
+	}
 
 	// Do not free( pstArray->pData )
 	// Upper class use pstArray->pData to save file.
