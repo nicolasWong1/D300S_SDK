@@ -250,19 +250,30 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\CtrlSample.h" />
-    <ClInclude Include="..\Maid3.h" />
-    <ClInclude Include="..\Maid3d1.h" />
-    <ClInclude Include="..\NkTypes.h" />
-    <ClInclude Include="..\Logger.h" />
-    <ClInclude Include="..\WorkerBridge.h" />    
+    <ClInclude Include="CtrlSample.h" />
+    <ClInclude Include="Maid3.h" />
+    <ClInclude Include="Maid3d1.h" />
+    <ClInclude Include="NkTypes.h" />
+    <ClInclude Include="Logger.h" />
+    <ClInclude Include="WorkerBridge.h" />    
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\CallBack.cpp" />
-    <ClCompile Include="..\Function.cpp" />
-    <ClCompile Include="..\Logger.cpp" />
-    <ClCompile Include="..\main.cpp" />
-    <ClCompile Include="..\WorkerBridge.cpp" />
+    <ClCompile Include="CallBack.cpp" />
+    <ClCompile Include="Function.cpp" />
+    <ClCompile Include="Logger.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="WorkerBridge.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <CopyFileToFolders Include="Type0001.md3">
+      <DestinationFolders>$(OutDir)</DestinationFolders>
+    </CopyFileToFolders>
+    <CopyFileToFolders Include="NkdPTP.dll">
+      <DestinationFolders>$(OutDir)</DestinationFolders>
+    </CopyFileToFolders>
+    <CopyFileToFolders Include="NkRoyalmile.dll">
+      <DestinationFolders>$(OutDir)</DestinationFolders>
+    </CopyFileToFolders>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
