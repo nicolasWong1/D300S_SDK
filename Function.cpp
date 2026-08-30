@@ -3553,9 +3553,20 @@ BOOL CaptureAndAcquire(LPRefObj pRefSrc)
 		return false;
 	}
 
-	Command_Async(pRefSrc->pObject);
+	// 等 item 出現先 Acquire（取代固定 Sleep(300)），上限 1 秒
+	ULONG pendingItemId = 0;
 
-	Sleep(300);
+	for (int i = 0; i < 40; i++)
+	{
+		Command_Async(pRefSrc->pObject);
+
+		if (GetLatestItemId(pRefSrc, &pendingItemId))
+		{
+			break;
+		}
+
+		Sleep(25);
+	}
 
 	if (!AcquireLatestImage(pRefSrc))
 	{
