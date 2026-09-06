@@ -6,6 +6,9 @@
 
 #include	<stdlib.h>
 #include	<stdio.h>
+#if defined( _WIN32 )
+	#include	<windows.h>
+#endif
 #include	"Maid3.h"
 #include	"Maid3d1.h"
 #include	"CtrlSample.h"
@@ -114,61 +117,26 @@ int main()
 		}
 	}
 
-	// Module Command Loop
-	do {
-		printf( "\nSelect (1-6, 0)\n" );
-		printf( " 1. Select Device            2. AsyncRate                3. IsAlive\n" );
-		printf( " 4. Name                     5. ModuleType               6. Version\n" );
-		printf( " 0. Exit\n>" );
-		scanf( "%s", buf );
-		wSel = atoi( buf );
+	// 自動偵測相機並進入 booth workflow（毋須人手揀 device）
+	printf( "Detecting Nikon camera...\n" );
 
-		switch( wSel )
-		{
-			case 1:// Children
-			{
-#if defined(__APPLE__)
-				CFAbsoluteTime duration = 1.0;
-				CFAbsoluteTime startTime = CFAbsoluteTimeGetCurrent();
-				do {
-					// Run "main run loop" to pop "Device Added" event
-					CFRunLoopRunInMode(kCFRunLoopDefaultMode,
-									   0.01,
-									   true);
-				} while (CFAbsoluteTimeGetCurrent() - startTime <= duration);
-#endif
-				// Select Device
-				ulSrcID = 0;	// 0 means Device count is zero. 
-				bRet = SelectSource( pRefMod, &ulSrcID );
-				if ( bRet == false ) break;
-				if( ulSrcID > 0 )
-					bRet = SourceCommandLoop( pRefMod, ulSrcID );
-			}
-				break;
-			case 2:// AsyncRate
-				bRet = SetUnsignedCapability( pRefMod, kNkMAIDCapability_AsyncRate );
-				break;
-			case 3:// IsAlive
-				bRet = SetBoolCapability( pRefMod, kNkMAIDCapability_IsAlive );
-				break;
-			case 4:// Name
-				bRet = SetStringCapability( pRefMod, kNkMAIDCapability_Name );
-				break;
-			case 5:// ModuleType
-				bRet = SetUnsignedCapability( pRefMod, kNkMAIDCapability_ModuleType );
-				break;
-			case 6:// Version
-				bRet = SetUnsignedCapability( pRefMod, kNkMAIDCapability_Version );
-				break;
-			default:
-				wSel = 0;
-		}
-		if ( bRet == false ) {
-			printf( "An Error occured. Enter '0' to exit.\n>" );
-			scanf( "%s", buf );
-			bRet = true;
-		}
-	} while( wSel > 0 && bRet == TRUE );
+	ulSrcID = 0;
+	while ( ulSrcID == 0 )
+	{
+		Command_Async( pRefMod->pObject );	// pump AddChild event
+
+		if ( TryGetFirstSource( pRefMod, &ulSrcID ) && ulSrcID > 0 )
+			break;
+
+		Sleep( 500 );
+	}
+
+	printf( "Camera detected. SourceId=%lu\n", ulSrcID );
+
+	bRet = SourceCommandLoop( pRefMod, ulSrcID );
+
+	(void)buf;
+	(void)wSel;
 
 	// Close Module_Object
 	bRet = Close_Module( pRefMod );

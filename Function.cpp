@@ -2159,6 +2159,37 @@ BOOL GetLiveViewStatus(LPRefObj pRefSrc, ULONG* pStatus)
     );
 }
 
+BOOL TryGetFirstSource(LPRefObj pRefMod, ULONG *pulSrcID)
+{
+	if (pRefMod == NULL || pulSrcID == NULL)
+		return false;
+
+	NkMAIDEnum stEnum;
+	memset(&stEnum, 0, sizeof(stEnum));
+
+	if (!Command_CapGet(pRefMod->pObject, kNkMAIDCapability_Children,
+			kNkMAIDDataType_EnumPtr, (NKPARAM)&stEnum, NULL, NULL))
+		return false;
+
+	if (stEnum.ulElements == 0 || stEnum.wPhysicalBytes != 4)
+		return false;
+
+	stEnum.pData = malloc(stEnum.ulElements * stEnum.wPhysicalBytes);
+	if (stEnum.pData == NULL)
+		return false;
+
+	BOOL bRet = Command_CapGetArray(pRefMod->pObject, kNkMAIDCapability_Children,
+		kNkMAIDDataType_EnumPtr, (NKPARAM)&stEnum, NULL, NULL);
+
+	if (bRet && stEnum.ulElements > 0)
+		*pulSrcID = ((ULONG *)stEnum.pData)[0];
+	else
+		bRet = false;
+
+	free(stEnum.pData);
+	return bRet;
+}
+
 BOOL EnsureLiveView(LPRefObj pRefSrc)
 {
 	// 上次 session 冇熄 LiveView 嘅話，直接重用，唔好再 set ON（會 fail）
@@ -3568,6 +3599,18 @@ BOOL CaptureAndAcquire(LPRefObj pRefSrc)
 {
 	WriteLog("Capture started");
 	printf("Capture started.\n");
+
+	// 影相前先自動對焦（best-effort：AF 唔支援或失敗都繼續影）
+	if (IssueProcess(pRefSrc, kNkMAIDCapability_AutoFocus))
+	{
+		WriteLog("AutoFocus done");
+		printf("AutoFocus done.\n");
+	}
+	else
+	{
+		WriteLog("AutoFocus skipped");
+		printf("AutoFocus skipped.\n");
+	}
 
 	if (!IssueProcess(
 			pRefSrc,
