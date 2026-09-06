@@ -7,6 +7,7 @@ BOOL PublishLiveViewFrame(
     const unsigned char* jpegData,
     ULONG jpegLength
 );
+BOOL IsLiveViewPipeConnected();
 BOOL TryReadWorkerCommand(
     char* commandBuffer,
     DWORD bufferLength

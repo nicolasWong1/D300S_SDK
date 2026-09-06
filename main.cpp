@@ -226,7 +226,7 @@ BOOL SourceCommandLoop( LPRefObj pRefMod, ULONG ulSrcID )
 		return false;
 	}
 
-	if (!StartLiveView(pRefSrc))
+	if (!EnsureLiveView(pRefSrc))
 	{
 		printf(
 			"Unable to start LiveView.\n"

@@ -135,6 +135,7 @@ BOOL	SetWBPresetDataCapability( LPRefObj pRefSrc );
 BOOL	DeleteDramCapability( LPRefObj pRefItem, ULONG ulItmID );
 BOOL	GetLiveViewImageCapability( LPRefObj pRefSrc );
 BOOL 	StartLiveView(LPRefObj pRefSrc);
+BOOL 	EnsureLiveView(LPRefObj pRefSrc);
 BOOL 	RunLiveViewLoop(LPRefObj pRefSrc);
 BOOL	CaptureAndAcquire( LPRefObj pRefSrc );
 BOOL	RestartLiveView( LPRefObj pRefSrc );

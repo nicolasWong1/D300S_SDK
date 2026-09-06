@@ -2105,6 +2105,17 @@ BOOL RunLiveViewLoop(LPRefObj pRefSrc)
 
 		GetLiveViewImageCapability(pRefSrc);
 
+		if (!IsLiveViewPipeConnected())
+		{
+			WriteLog("Backend pipe lost. Waiting to reconnect...");
+			printf("Backend pipe lost. Waiting to reconnect...\n");
+
+			InitializeLiveViewPipe();
+			EnsureLiveView(pRefSrc);
+
+			continue;
+		}
+
 		const ULONGLONG elapsed = GetTickCount64() - startedAt;
 
 		if (elapsed < frameIntervalMs)
@@ -2146,6 +2157,22 @@ BOOL GetLiveViewStatus(LPRefObj pRefSrc, ULONG* pStatus)
         NULL,
         NULL
     );
+}
+
+BOOL EnsureLiveView(LPRefObj pRefSrc)
+{
+	// 上次 session 冇熄 LiveView 嘅話，直接重用，唔好再 set ON（會 fail）
+	ULONG status = kNkMAIDLiveViewStatus_OFF;
+
+	if (GetLiveViewStatus(pRefSrc, &status) && status == kNkMAIDLiveViewStatus_ON)
+	{
+		WriteLog("LiveView already ON, reusing existing session.");
+		printf("LiveView already ON, reusing it.\n");
+
+		return true;
+	}
+
+	return StartLiveView(pRefSrc);
 }
 
 BOOL RestartLiveView(LPRefObj pRefSrc)

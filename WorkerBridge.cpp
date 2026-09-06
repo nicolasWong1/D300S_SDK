@@ -62,6 +62,7 @@ BOOL PublishLiveViewFrame(
     ))
     {
         WriteLog("Failed to write frame length. Error=%lu", GetLastError());
+        CloseLiveViewPipe();
 
         return FALSE;
     }
@@ -76,11 +77,17 @@ BOOL PublishLiveViewFrame(
     ))
     {
         WriteLog("Failed to write JPEG frame. Error=%lu", GetLastError());
+        CloseLiveViewPipe();
 
         return FALSE;
     }
 
     return bytesWritten == jpegLength;
+}
+
+BOOL IsLiveViewPipeConnected()
+{
+    return g_liveViewPipe != INVALID_HANDLE_VALUE;
 }
 
 void CloseLiveViewPipe()
