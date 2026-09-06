@@ -2153,24 +2153,22 @@ BOOL RestartLiveView(LPRefObj pRefSrc)
 	WriteLog("Restarting LiveView...");
     printf("Restarting LiveView...\n");
 
-    // Acquire 完後先俾 Nikon 處理 callback / event
-    for (int i = 0; i < 10; i++)
+    // Acquire 完後先俾 Nikon 處理 callback / event（原本 10x100ms，實測後收窄）
+    for (int i = 0; i < 4; i++)
     {
-        Command_Async(
-            pRefSrc->pObject
-        );
+        Command_Async(pRefSrc->pObject);
 
-        Sleep(100);
+        Sleep(50);
     }
 
     // 強制 OFF，避免相機 status 仲殘留 ON
     SetLiveViewStatus(pRefSrc, kNkMAIDLiveViewStatus_OFF);
 
-    for (int i = 0; i < 5; i++)
+    for (int i = 0; i < 2; i++)
     {
         Command_Async(pRefSrc->pObject);
 
-        Sleep(100);
+        Sleep(50);
     }
 
     // 再開 ON
@@ -2183,8 +2181,8 @@ BOOL RestartLiveView(LPRefObj pRefSrc)
         return FALSE;
     }
 
-    // 等相機真正進入 LiveView
-    for (int retry = 0; retry < 20; retry++)
+    // 等相機真正進入 LiveView（50ms poll，上限約 2 秒不變）
+    for (int retry = 0; retry < 40; retry++)
     {
         Command_Async(pRefSrc->pObject);
 
@@ -2210,7 +2208,7 @@ BOOL RestartLiveView(LPRefObj pRefSrc)
 			printf("LiveView restart failed, status=%lu\n", status);
 		}
 
-        Sleep(100);
+        Sleep(50);
     }
 
     WriteLog("Timed out waiting for LiveView restart.");
