@@ -2206,6 +2206,157 @@ BOOL EnsureLiveView(LPRefObj pRefSrc)
 	return StartLiveView(pRefSrc);
 }
 
+// 讀 capability 現值：Unsigned 直接讀；Enum 就讀 pData[ulValue]。部機唔支援（cap 唔存在）就 FALSE，唔會出錯
+BOOL GetCapValue(LPRefObj pRefSrc, ULONG ulCapID, ULONG* pValue)
+{
+	LPNkMAIDCapInfo pCapInfo = (pRefSrc != NULL) ? GetCapInfo(pRefSrc, ulCapID) : NULL;
+	if (pCapInfo == NULL || pValue == NULL)
+		return FALSE;
+
+	if (pCapInfo->ulType == kNkMAIDCapType_Unsigned)
+		return Command_CapGet(pRefSrc->pObject, ulCapID, kNkMAIDDataType_UnsignedPtr, (NKPARAM)pValue, NULL, NULL);
+
+	if (pCapInfo->ulType != kNkMAIDCapType_Enum)
+		return FALSE;
+
+	NkMAIDEnum stEnum;
+	memset(&stEnum, 0, sizeof(stEnum));
+	if (!Command_CapGet(pRefSrc->pObject, ulCapID, kNkMAIDDataType_EnumPtr, (NKPARAM)&stEnum, NULL, NULL) ||
+		stEnum.ulElements == 0 || stEnum.wPhysicalBytes != 4)
+		return FALSE;
+
+	stEnum.pData = malloc(stEnum.ulElements * stEnum.wPhysicalBytes);
+	if (stEnum.pData == NULL)
+		return FALSE;
+
+	BOOL bRet = Command_CapGetArray(pRefSrc->pObject, ulCapID, kNkMAIDDataType_EnumPtr, (NKPARAM)&stEnum, NULL, NULL);
+	if (bRet && stEnum.ulValue < stEnum.ulElements)
+		*pValue = ((ULONG*)stEnum.pData)[stEnum.ulValue];
+	else
+		bRet = FALSE;
+
+	free(stEnum.pData);
+	return bRet;
+}
+
+// 將 Enum capability set 去某個「值」（唔係 index）。搵唔到該值、或者唔俾 set，就 FALSE
+BOOL SetEnumCapByValue(LPRefObj pRefSrc, ULONG ulCapID, ULONG ulDesired)
+{
+	LPNkMAIDCapInfo pCapInfo = (pRefSrc != NULL) ? GetCapInfo(pRefSrc, ulCapID) : NULL;
+	if (pCapInfo == NULL || pCapInfo->ulType != kNkMAIDCapType_Enum ||
+		!CheckCapabilityOperation(pRefSrc, ulCapID, kNkMAIDCapOperation_Set))
+		return FALSE;
+
+	NkMAIDEnum stEnum;
+	memset(&stEnum, 0, sizeof(stEnum));
+	if (!Command_CapGet(pRefSrc->pObject, ulCapID, kNkMAIDDataType_EnumPtr, (NKPARAM)&stEnum, NULL, NULL) ||
+		stEnum.ulElements == 0 || stEnum.wPhysicalBytes != 4)
+		return FALSE;
+
+	stEnum.pData = malloc(stEnum.ulElements * stEnum.wPhysicalBytes);
+	if (stEnum.pData == NULL)
+		return FALSE;
+
+	BOOL bRet = Command_CapGetArray(pRefSrc->pObject, ulCapID, kNkMAIDDataType_EnumPtr, (NKPARAM)&stEnum, NULL, NULL);
+	if (bRet)
+	{
+		bRet = FALSE;
+		for (ULONG i = 0; i < stEnum.ulElements; i++)
+		{
+			if (((ULONG*)stEnum.pData)[i] == ulDesired)
+			{
+				stEnum.ulValue = i;
+				bRet = Command_CapSet(pRefSrc->pObject, ulCapID, kNkMAIDDataType_EnumPtr, (NKPARAM)&stEnum, NULL, NULL);
+				break;
+			}
+		}
+	}
+
+	free(stEnum.pData);
+	return bRet;
+}
+
+static const char* InternalFlashText(ULONG v)
+{
+	switch (v)
+	{
+	case kNkMAIDInternalFlashStatus_Ready:    return "READY";
+	case kNkMAIDInternalFlashStatus_NotReady: return "charging";
+	case kNkMAIDInternalFlashStatus_Close:    return "CLOSED - pop up the built-in flash if you want flash";
+	case kNkMAIDInternalFlashStatus_TTL:      return "TTL";
+	default:                                  return "unknown";
+	}
+}
+
+static const char* FlashModeText(ULONG v)
+{
+	switch (v)
+	{
+	case kNkMAIDFlashMode_FrontCurtain:            return "Normal (front-curtain)";
+	case kNkMAIDFlashMode_RearCurtain:             return "Rear-sync";
+	case kNkMAIDFlashMode_SlowSync:                return "Slow-sync";
+	case kNkMAIDFlashMode_RedEyeReduction:         return "Red-eye reduction";
+	case kNkMAIDFlashMode_SlowSyncRedEyeReduction: return "Slow-sync red-eye";
+	case kNkMAIDFlashMode_SlowSyncRearCurtain:     return "Slow rear-sync";
+	case kNkMAIDFlashMode_Off:                     return "OFF";
+	default:                                       return "unknown";
+	}
+}
+
+// 印出閃光燈狀態（startup 同每次影相前）。
+// D300S 內置閃光燈係機械彈起，SDK 只能讀狀態／set mode，冇得叫佢彈開——CLOSED 就要 helper 手動㩒起。
+void LogFlashStatus(LPRefObj pRefSrc)
+{
+	ULONG value = 0;
+
+	if (GetCapValue(pRefSrc, kNkMAIDCapability_InternalFlashStatus, &value))
+	{
+		WriteLog("Internal flash: %s (%lu)", InternalFlashText(value), value);
+		printf("Internal flash: %s\n", InternalFlashText(value));
+	}
+	else
+		printf("Internal flash: status not available on this body.\n");
+
+	if (GetCapValue(pRefSrc, kNkMAIDCapability_FlashMode, &value))
+	{
+		WriteLog("Flash mode: %s (%lu)", FlashModeText(value), value);
+		printf("Flash mode: %s\n", FlashModeText(value));
+	}
+}
+
+// 影相前強制閃光：閃光燈已彈起而 mode 係 OFF 就轉做 Normal。
+// 彈唔起（CLOSED）係硬件限制，只會警告，照影。
+BOOL EnsureFlashOn(LPRefObj pRefSrc)
+{
+	ULONG status = 0, mode = 0;
+
+	if (GetCapValue(pRefSrc, kNkMAIDCapability_InternalFlashStatus, &status) &&
+		status == kNkMAIDInternalFlashStatus_Close)
+	{
+		WriteLog("Flash: built-in flash is CLOSED, cannot force flash");
+		printf("Flash: built-in flash is CLOSED - pop it up to use flash.\n");
+		return FALSE;
+	}
+
+	if (GetCapValue(pRefSrc, kNkMAIDCapability_FlashMode, &mode) && mode == kNkMAIDFlashMode_Off)
+	{
+		if (SetEnumCapByValue(pRefSrc, kNkMAIDCapability_FlashMode, kNkMAIDFlashMode_FrontCurtain))
+		{
+			WriteLog("Flash: mode was OFF, forced to Normal");
+			printf("Flash: mode OFF -> Normal.\n");
+		}
+		else
+		{
+			WriteLog("Flash: mode is OFF and could not be changed");
+			printf("Flash: mode is OFF and could not be changed.\n");
+			return FALSE;
+		}
+	}
+
+	LogFlashStatus(pRefSrc);
+	return TRUE;
+}
+
 BOOL RestartLiveView(LPRefObj pRefSrc)
 {
 	WriteLog("Restarting LiveView...");
@@ -3599,6 +3750,8 @@ BOOL CaptureAndAcquire(LPRefObj pRefSrc)
 {
 	WriteLog("Capture started");
 	printf("Capture started.\n");
+
+	EnsureFlashOn(pRefSrc);
 
 	// 影相前先自動對焦（best-effort：AF 唔支援或失敗都繼續影）
 	if (IssueProcess(pRefSrc, kNkMAIDCapability_AutoFocus))

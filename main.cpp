@@ -203,6 +203,8 @@ BOOL SourceCommandLoop( LPRefObj pRefMod, ULONG ulSrcID )
 		return false;
 	}
 
+	LogFlashStatus(pRefSrc);
+
 	RunLiveViewLoop(pRefSrc);
 
 	return true;
